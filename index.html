@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CrowdFlow AI</title>
+    <!-- Google Fonts for Modern Typography -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  </head>
+  <body>
+    <div id="app" class="app-container">
+      
+      <!-- Side Navigation -->
+      <nav id="sidebar" class="sidebar">
+        <div class="brand">
+          <i class="fa-solid fa-bolt brand-icon"></i>
+          <h1>CrowdFlow AI</h1>
+        </div>
+        
+        <ul class="nav-links">
+          <li>
+            <a href="#" data-route="home" class="nav-link active">
+              <i class="fa-solid fa-house"></i>
+              <span>Home</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" data-route="stadium" class="nav-link">
+              <i class="fa-solid fa-map-location-dot"></i>
+              <span>Stadium Details</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" data-route="food" class="nav-link">
+              <i class="fa-solid fa-burger"></i>
+              <span>Food Services</span>
+            </a>
+          </li>
+          <li>
+            <a href="#" data-route="emergency" class="nav-link emergency-link">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              <span>Emergency</span>
+            </a>
+          </li>
+        </ul>
+        
+        <div class="live-status">
+          <div class="status-indicator live-ping"></div>
+          <span id="global-status-text">Live: Match Ongoing</span>
+        </div>
+      </nav>
+
+      <!-- Main Content Area -->
+      <main id="main-content" class="main-content">
+        <!-- Views will be injected here by the router -->
+      </main>
+
+      <!-- Bottom Navigation for Mobile -->
+      <nav id="bottom-nav" class="bottom-nav">
+        <a href="#" data-route="home" class="nav-link active">
+          <i class="fa-solid fa-house"></i>
+        </a>
+        <a href="#" data-route="stadium" class="nav-link">
+          <i class="fa-solid fa-map-location-dot"></i>
+        </a>
+        <a href="#" data-route="food" class="nav-link">
+          <i class="fa-solid fa-burger"></i>
+        </a>
+        <a href="#" data-route="emergency" class="nav-link emergency-link">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+        </a>
+      </nav>
+
+    </div>
+    
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

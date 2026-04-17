@@ -4,6 +4,8 @@ import { renderStadium } from './views/stadium.js';
 import { renderFood } from './views/food.js';
 import { renderEmergency } from './views/emergency.js';
 
+const API = import.meta.env.VITE_API_URL;
+
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const densityFromCount = (count) => {
   if (count >= 3800) return 'crowded';
@@ -21,6 +23,22 @@ function formatClock(date = new Date()) {
     minute: '2-digit',
     second: '2-digit'
   });
+}
+
+// Vanilla hooks-style helpers used to manage state/effects cleanly.
+function useState(initialValue) {
+  let value = initialValue;
+  const getValue = () => value;
+  const setValue = (nextValue) => {
+    value = typeof nextValue === 'function' ? nextValue(value) : nextValue;
+    return value;
+  };
+  return [getValue, setValue];
+}
+
+function useEffect(effectCallback) {
+  const cleanup = effectCallback();
+  return typeof cleanup === 'function' ? cleanup : () => {};
 }
 
 // ---- GLOBAL STATE & SIMULATOR ---- //
@@ -47,6 +65,9 @@ export const AppState = {
     congestionIndex: 42,
     recommendedGate: 'Gate 3',
     connectivity: 'stable'
+  },
+  config: {
+    apiBase: API
   },
 
   // Alerts shown across views
@@ -78,9 +99,9 @@ export const AppState = {
       rating: '4.5/5',
       status: 'medium',
       menu: [
-        { id: 'b1', name: 'Classic Beef Burger', price: 12 },
-        { id: 'b2', name: 'Smoky BBQ Burger', price: 14 },
-        { id: 'b3', name: 'Crispy Chicken Burger', price: 13 }
+        { id: 'b1', name: 'Classic Beef Burger', price: 320 },
+        { id: 'b2', name: 'Smoky BBQ Burger', price: 360 },
+        { id: 'b3', name: 'Crispy Chicken Burger', price: 340 }
       ]
     },
     {
@@ -92,9 +113,9 @@ export const AppState = {
       rating: '4.8/5',
       status: 'crowded',
       menu: [
-        { id: 'p1', name: 'Margherita Slice', price: 10 },
-        { id: 'p2', name: 'Pepperoni Slice', price: 11 },
-        { id: 'p3', name: 'Farmhouse Pizza', price: 13 }
+        { id: 'p1', name: 'Margherita Slice', price: 240 },
+        { id: 'p2', name: 'Pepperoni Slice', price: 280 },
+        { id: 'p3', name: 'Farmhouse Pizza', price: 320 }
       ]
     },
     {
@@ -106,9 +127,9 @@ export const AppState = {
       rating: '4.0/5',
       status: 'safe',
       menu: [
-        { id: 'd1', name: 'Fresh Lime Soda', price: 4 },
-        { id: 'd2', name: 'Cold Coffee', price: 5 },
-        { id: 'd3', name: 'Energy Drink', price: 6 }
+        { id: 'd1', name: 'Fresh Lime Soda', price: 90 },
+        { id: 'd2', name: 'Cold Coffee', price: 160 },
+        { id: 'd3', name: 'Energy Drink', price: 180 }
       ]
     },
     {
@@ -120,9 +141,9 @@ export const AppState = {
       rating: '4.7/5',
       status: 'medium',
       menu: [
-        { id: 'r1', name: 'Chicken Biryani Bowl', price: 15 },
-        { id: 'r2', name: 'Paneer Biryani Bowl', price: 13 },
-        { id: 'r3', name: 'Raita Combo', price: 3 }
+        { id: 'r1', name: 'Chicken Biryani Bowl', price: 380 },
+        { id: 'r2', name: 'Paneer Biryani Bowl', price: 340 },
+        { id: 'r3', name: 'Raita Combo', price: 70 }
       ]
     },
     {
@@ -134,9 +155,9 @@ export const AppState = {
       rating: '4.4/5',
       status: 'medium',
       menu: [
-        { id: 'm1', name: 'Chicken Taco', price: 9 },
-        { id: 'm2', name: 'Veg Taco', price: 8 },
-        { id: 'm3', name: 'Nachos & Salsa', price: 7 }
+        { id: 'm1', name: 'Chicken Taco', price: 220 },
+        { id: 'm2', name: 'Veg Taco', price: 190 },
+        { id: 'm3', name: 'Nachos & Salsa', price: 210 }
       ]
     },
     {
@@ -148,9 +169,9 @@ export const AppState = {
       rating: '4.6/5',
       status: 'safe',
       menu: [
-        { id: 's1', name: 'Chocolate Brownie', price: 6 },
-        { id: 's2', name: 'Soft Serve Sundae', price: 7 },
-        { id: 's3', name: 'Churros', price: 6 }
+        { id: 's1', name: 'Chocolate Brownie', price: 170 },
+        { id: 's2', name: 'Soft Serve Sundae', price: 190 },
+        { id: 's3', name: 'Churros', price: 180 }
       ]
     }
   ],
@@ -241,12 +262,12 @@ function syncGlobalStatus() {
 
 async function fetchData() {
   try {
-    AppState.isLoading = AppState.alerts.length === 0 && !AppState.system.lastUpdated;
+    AppState.isLoading = !getHasLoadedOnce();
     syncGlobalStatus();
 
     const [dashboardRes, foodRes] = await Promise.all([
-      fetch('http://localhost:5000/dashboard').catch(() => null),
-      fetch('http://localhost:5000/food').catch(() => null)
+      fetch(`${API}/dashboard`).catch(() => null),
+      fetch(`${API}/food`).catch(() => null)
     ]);
 
     if (!dashboardRes || !foodRes || !dashboardRes.ok || !foodRes.ok) {
@@ -256,12 +277,12 @@ async function fetchData() {
     const dashboardData = await dashboardRes.json();
     const foodData = await foodRes.json();
 
-    // Data integration adapting API to AppState schema
-    if (dashboardData.audience) AppState.match.audience = dashboardData.audience;
-    if (dashboardData.congestion) AppState.system.congestionIndex = dashboardData.congestion;
+    if (typeof dashboardData.audience === 'number') AppState.match.audience = dashboardData.audience;
+    if (typeof dashboardData.maxAudience === 'number') AppState.match.maxAudience = dashboardData.maxAudience;
+    if (typeof dashboardData.congestion === 'number') AppState.system.congestionIndex = dashboardData.congestion;
     if (dashboardData.gate) AppState.system.recommendedGate = dashboardData.gate;
+    if (dashboardData.lastUpdated) AppState.system.lastUpdated = formatClock(new Date(dashboardData.lastUpdated));
     
-    // Update individual gates metrics if provided
     if (dashboardData.stadium) AppState.stadium = dashboardData.stadium;
 
     if (Array.isArray(foodData)) {
@@ -270,11 +291,12 @@ async function fetchData() {
       AppState.foodVendors = foodData.vendors;
     }
 
+    setHasLoadedOnce(true);
     AppState.isLoading = false;
     AppState.error = null;
 
   } catch (err) {
-    AppState.error = err.message || 'Backend connection refused. Please start the backend server.';
+    AppState.error = err.message || 'Backend connection failed. Please start the backend server.';
     AppState.isLoading = false;
   }
 
@@ -289,15 +311,20 @@ updateInsights();
 buildAlerts();
 syncGlobalStatus();
 
-// Simulate Component Mount / useEffect equivalent for Vanilla JS
-let fetchInterval;
+const [getHasLoadedOnce, setHasLoadedOnce] = useState(false);
+let stopSync = () => {};
+
 export function startDataSync() {
-  fetchData();
-  fetchInterval = setInterval(fetchData, 5000); // Refresh every 5 seconds
+  stopSync = useEffect(() => {
+    fetchData();
+    const fetchInterval = setInterval(fetchData, 5000);
+    return () => clearInterval(fetchInterval);
+  });
 }
 
 export function stopDataSync() {
-  clearInterval(fetchInterval); // Cleanup interval properly
+  stopSync();
+  stopSync = () => {};
 }
 
 startDataSync();

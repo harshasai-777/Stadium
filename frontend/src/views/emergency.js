@@ -95,17 +95,38 @@ export function renderEmergency(container, AppState) {
     return `${mins}m ${String(secs).padStart(2, '0')}s`;
   };
 
-  btnSos.addEventListener('click', () => {
-    const id = `INC-${Math.floor(Math.random() * 9000 + 1000)}`;
+  btnSos.addEventListener('click', async () => {
+    btnSos.disabled = true;
     const type = incidentType.value || 'Medical';
     const seat = seatReference.value?.trim();
+    const apiBase = AppState.config?.apiBase;
+    let id = `INC-${Math.floor(Math.random() * 9000 + 1000)}`;
+    let suggestedGate = AppState.system.recommendedGate;
+
+    try {
+      const response = await fetch(`${apiBase}/emergency`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ issueType: type, seat: seat || 'Unknown' })
+      });
+      if (!response.ok) {
+        throw new Error('Emergency API request failed');
+      }
+      const payload = await response.json();
+      if (payload?.alert?.incidentId) id = payload.alert.incidentId;
+      if (payload?.alert?.recommendedGate) suggestedGate = payload.alert.recommendedGate;
+    } catch (error) {
+      console.error(error);
+    } finally {
+      btnSos.disabled = false;
+    }
 
     initialView.style.display = 'none';
     activeView.classList.add('active');
     document.body.classList.add('emergency-active');
     incidentId.textContent = id;
     incidentTypeLabel.textContent = seat ? `${type} (${seat})` : type;
-    if (recommendedGateEl) recommendedGateEl.textContent = AppState.system.recommendedGate;
+    if (recommendedGateEl) recommendedGateEl.textContent = suggestedGate;
 
     etaSeconds = 180;
     responderEta.textContent = formatEta(etaSeconds);

@@ -6,7 +6,8 @@ export function renderFood(container, AppState) {
     quantity: 1,
     selectedVendor: null,
     selectedMenuItemId: null,
-    orderCart: []
+    orderCart: [],
+    latestOrderCode: null
   };
 
   const content = `
@@ -78,9 +79,10 @@ export function renderFood(container, AppState) {
 
         <div class="order-total" style="font-size: 20px; font-weight: 700; display: flex; justify-content: space-between; margin-bottom: 24px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px;">
           <span>Total</span>
-          <span id="modal-total">$0.00</span>
+          <span id="modal-total">Rs 0.00</span>
         </div>
         <button class="btn" style="width: 100%" id="confirm-btn" disabled>Confirm Order</button>
+        <p id="order-code-message" style="margin-top:12px; text-align:center; color:var(--success-color); font-weight:600; display:none;"></p>
       </div>
     </div>
   `;
@@ -100,8 +102,14 @@ export function renderFood(container, AppState) {
   const qtyMinus = document.getElementById('qty-minus');
   const modalMenuSelect = document.getElementById('modal-menu-select');
   const modalVendorName = document.getElementById('modal-vendor-name');
+  const orderCodeMessage = document.getElementById('order-code-message');
 
   const parseRating = (ratingValue) => Number.parseFloat(ratingValue.split('/')[0]) || 0;
+  const generateOrderCode = () => {
+    const stamp = Date.now().toString(36).toUpperCase();
+    const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+    return `ORD-${stamp}-${rand}`;
+  };
 
   const getVisibleVendors = () => {
     const filtered = AppState.foodVendors.filter((vendor) => {
@@ -140,10 +148,10 @@ export function renderFood(container, AppState) {
         <div class="order-item" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed rgba(255,255,255,0.1);">
           <div>
             <h4 style="font-size: 14px; margin-bottom: 4px;">${item.name}</h4>
-            <span style="font-size:12px;color:var(--text-secondary)">Qty: ${item.quantity}  (@ $${item.price.toFixed(2)} ea)</span>
+            <span style="font-size:12px;color:var(--text-secondary)">Qty: ${item.quantity}  (@ Rs ${item.price.toFixed(2)} ea)</span>
           </div>
           <div style="display: flex; gap: 16px; align-items: center;">
-            <strong>$${(item.price * item.quantity).toFixed(2)}</strong>
+            <strong>Rs ${(item.price * item.quantity).toFixed(2)}</strong>
             <button class="remove-cart-item" data-index="${index}" style="background:none; border:none; cursor:pointer; color:var(--danger-color); font-size: 16px;"><i class="fa-solid fa-trash"></i></button>
           </div>
         </div>
@@ -163,7 +171,7 @@ export function renderFood(container, AppState) {
   const syncOrderTotal = () => {
     const totalEl = document.getElementById('modal-total');
     const total = uiState.orderCart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    totalEl.textContent = `$${total.toFixed(2)}`;
+    totalEl.textContent = `Rs ${total.toFixed(2)}`;
     
     confirmBtn.disabled = uiState.orderCart.length === 0;
   };
@@ -172,12 +180,13 @@ export function renderFood(container, AppState) {
     uiState.selectedVendor = vendor;
     uiState.selectedMenuItemId = vendor.menu[0]?.id || null;
     uiState.quantity = 1;
-    uiState.orderCart = []; 
+    uiState.orderCart = [];
+    uiState.latestOrderCode = null;
     
     modalVendorName.textContent = vendor.name;
 
     modalMenuSelect.innerHTML = vendor.menu.map((item) => `
-      <option value="${item.id}">${item.name} - $${item.price.toFixed(2)}</option>
+      <option value="${item.id}">${item.name} - Rs ${item.price.toFixed(2)}</option>
     `).join('');
     modalMenuSelect.value = uiState.selectedMenuItemId || '';
 
@@ -186,6 +195,10 @@ export function renderFood(container, AppState) {
     syncOrderTotal();
 
     confirmBtn.innerHTML = 'Confirm Order';
+    if (orderCodeMessage) {
+      orderCodeMessage.style.display = 'none';
+      orderCodeMessage.textContent = '';
+    }
     modal.classList.add('active');
   };
 
@@ -301,10 +314,12 @@ export function renderFood(container, AppState) {
     confirmBtn.disabled = true;
     
     setTimeout(() => {
-      confirmBtn.innerHTML = '<i class="fa-solid fa-check"></i> Ordered completed!';
-      setTimeout(() => {
-        modal.classList.remove('active');
-      }, 1500);
+      uiState.latestOrderCode = generateOrderCode();
+      confirmBtn.innerHTML = '<i class="fa-solid fa-check"></i> Order Placed';
+      if (orderCodeMessage) {
+        orderCodeMessage.style.display = 'block';
+        orderCodeMessage.innerHTML = `Order Code: <strong>${uiState.latestOrderCode}</strong>`;
+      }
     }, 1200);
   });
 

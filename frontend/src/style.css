@@ -1499,3 +1499,28 @@ h1, h2, h3, h4, h5, h6 {
   border-color: rgba(199, 154, 93, 0.34);
   background: rgba(14, 20, 28, 0.93);
 }
+
+/* Global scrollbar theme (small, non-invasive) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(199, 154, 93, 0.55) rgba(20, 26, 33, 0.9);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(20, 26, 33, 0.9);
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(199, 154, 93, 0.72), rgba(143, 102, 55, 0.9));
+  border-radius: 999px;
+  border: 2px solid rgba(20, 26, 33, 0.9);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(217, 172, 112, 0.85), rgba(156, 112, 61, 0.95));
+}

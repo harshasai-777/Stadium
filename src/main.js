@@ -4,18 +4,53 @@ import { renderStadium } from './views/stadium.js';
 import { renderFood } from './views/food.js';
 import { renderEmergency } from './views/emergency.js';
 
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const densityFromCount = (count) => {
+  if (count >= 3800) return 'crowded';
+  if (count >= 1800) return 'medium';
+  return 'safe';
+};
+
+function formatScore(match) {
+  return `${match.runs}/${match.wickets} (${match.overs}.${match.balls} Overs)`;
+}
+
+function formatClock(date = new Date()) {
+  return date.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit'
+  });
+}
+
 // ---- GLOBAL STATE & SIMULATOR ---- //
 export const AppState = {
+  isLoading: true,
+  error: null,
   activeRoute: 'home',
-  
+
   // Match Info
   match: {
     teamA: 'India',
     teamB: 'Australia',
+    runs: 142,
+    wickets: 3,
+    overs: 15,
+    balls: 2,
     score: '142/3 (15.2 Overs)',
     audience: 45230,
     maxAudience: 50000
   },
+
+  system: {
+    lastUpdated: formatClock(),
+    congestionIndex: 42,
+    recommendedGate: 'Gate 3',
+    connectivity: 'stable'
+  },
+
+  // Alerts shown across views
+  alerts: [],
 
   // Sections Data for Map (Randomized periodically)
   stadium: {
@@ -34,50 +69,238 @@ export const AppState = {
 
   // Food Services Data
   foodVendors: [
-    { id: 1, name: 'Burger Point', type: 'burger', waitTime: 15, rating: '4.5/5', status: 'medium' },
-    { id: 2, name: 'Pizza Corner', type: 'pizza', waitTime: 30, rating: '4.8/5', status: 'crowded' },
-    { id: 3, name: 'Refreshments', type: 'drinks', waitTime: 5, rating: '4.0/5', status: 'safe' }
+    {
+      id: 1,
+      name: 'Burger Point',
+      type: 'burger',
+      image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=1200&q=80',
+      waitTime: 15,
+      rating: '4.5/5',
+      status: 'medium',
+      menu: [
+        { id: 'b1', name: 'Classic Beef Burger', price: 12 },
+        { id: 'b2', name: 'Smoky BBQ Burger', price: 14 },
+        { id: 'b3', name: 'Crispy Chicken Burger', price: 13 }
+      ]
+    },
+    {
+      id: 2,
+      name: 'Pizza Corner',
+      type: 'pizza',
+      image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=1200&q=80',
+      waitTime: 30,
+      rating: '4.8/5',
+      status: 'crowded',
+      menu: [
+        { id: 'p1', name: 'Margherita Slice', price: 10 },
+        { id: 'p2', name: 'Pepperoni Slice', price: 11 },
+        { id: 'p3', name: 'Farmhouse Pizza', price: 13 }
+      ]
+    },
+    {
+      id: 3,
+      name: 'Refreshments',
+      type: 'drinks',
+      image: 'https://images.unsplash.com/photo-1536935338788-846bb9981813?auto=format&fit=crop&w=1200&q=80',
+      waitTime: 5,
+      rating: '4.0/5',
+      status: 'safe',
+      menu: [
+        { id: 'd1', name: 'Fresh Lime Soda', price: 4 },
+        { id: 'd2', name: 'Cold Coffee', price: 5 },
+        { id: 'd3', name: 'Energy Drink', price: 6 }
+      ]
+    },
+    {
+      id: 4,
+      name: 'Biryani House',
+      type: 'rice',
+      image: '/biryani_house.png',
+      waitTime: 18,
+      rating: '4.7/5',
+      status: 'medium',
+      menu: [
+        { id: 'r1', name: 'Chicken Biryani Bowl', price: 15 },
+        { id: 'r2', name: 'Paneer Biryani Bowl', price: 13 },
+        { id: 'r3', name: 'Raita Combo', price: 3 }
+      ]
+    },
+    {
+      id: 5,
+      name: 'Taco Bay',
+      type: 'mexican',
+      image: 'https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?auto=format&fit=crop&w=1200&q=80',
+      waitTime: 11,
+      rating: '4.4/5',
+      status: 'medium',
+      menu: [
+        { id: 'm1', name: 'Chicken Taco', price: 9 },
+        { id: 'm2', name: 'Veg Taco', price: 8 },
+        { id: 'm3', name: 'Nachos & Salsa', price: 7 }
+      ]
+    },
+    {
+      id: 6,
+      name: 'Sweet Spot',
+      type: 'dessert',
+      image: 'https://images.unsplash.com/photo-1551024601-bec78aea704b?auto=format&fit=crop&w=1200&q=80',
+      waitTime: 7,
+      rating: '4.6/5',
+      status: 'safe',
+      menu: [
+        { id: 's1', name: 'Chocolate Brownie', price: 6 },
+        { id: 's2', name: 'Soft Serve Sundae', price: 7 },
+        { id: 's3', name: 'Churros', price: 6 }
+      ]
+    }
   ],
   
   // Custom Event Target for Pub/Sub
   events: new EventTarget()
 };
 
-// Simulate Real-time Data
-setInterval(() => {
-  // Update audience
-  AppState.match.audience += Math.floor(Math.random() * 20) - 10;
-  
-  // Randomize section densities
-  const densities = ['safe', 'medium', 'crowded'];
-  for (let key in AppState.stadium.sections) {
-    if(Math.random() > 0.7) {
-       AppState.stadium.sections[key].density = densities[Math.floor(Math.random() * densities.length)];
-    }
-    // fluctuate count
-    AppState.stadium.sections[key].count += Math.floor(Math.random() * 100) - 50;
+function buildAlerts() {
+  const now = new Date();
+  const time = formatClock(now);
+  const nextAlerts = [];
+
+  const crowdedSections = Object.entries(AppState.stadium.sections)
+    .filter(([, value]) => value.density === 'crowded')
+    .map(([name]) => name);
+
+  if (crowdedSections.length > 0) {
+    nextAlerts.push({
+      id: `sec-${now.getTime()}`,
+      level: 'warning',
+      message: `High density in ${crowdedSections.join(', ')}`,
+      time
+    });
   }
 
-  // Randomize gate crowds
-  for (let key in AppState.stadium.gates) {
-    let change = Math.floor(Math.random() * 20) - 10;
-    AppState.stadium.gates[key].crowd = Math.max(0, AppState.stadium.gates[key].crowd + change);
+  const crowdedGates = Object.entries(AppState.stadium.gates)
+    .filter(([, value]) => value.crowd >= 180)
+    .map(([name, gate]) => `${name.replace('Gate', 'Gate ')} (${gate.crowd})`);
+
+  if (crowdedGates.length > 0) {
+    nextAlerts.push({
+      id: `gate-${now.getTime() + 1}`,
+      level: 'warning',
+      message: `Queue pressure at ${crowdedGates.join(', ')}`,
+      time
+    });
   }
 
-  // Randomize food wait times
-  AppState.foodVendors.forEach(v => {
-    if(Math.random() > 0.5) {
-      v.waitTime = Math.max(2, v.waitTime + (Math.floor(Math.random() * 5) - 2));
-      if (v.waitTime < 10) v.status = 'safe';
-      else if (v.waitTime < 25) v.status = 'medium';
-      else v.status = 'crowded';
+  const fastestVendor = [...AppState.foodVendors].sort((a, b) => a.waitTime - b.waitTime)[0];
+  if (fastestVendor) {
+    nextAlerts.push({
+      id: `food-${now.getTime() + 2}`,
+      level: 'info',
+      message: `Fastest food pickup: ${fastestVendor.name} (${fastestVendor.waitTime}m)`,
+      time
+    });
+  }
+
+  AppState.alerts = [...nextAlerts, ...AppState.alerts].slice(0, 6);
+}
+
+function updateInsights() {
+  const allSections = Object.values(AppState.stadium.sections);
+  const sectionScore = allSections.reduce((acc, section) => {
+    if (section.density === 'crowded') return acc + 35;
+    if (section.density === 'medium') return acc + 18;
+    return acc + 6;
+  }, 0);
+
+  const gateScore = Object.values(AppState.stadium.gates)
+    .reduce((acc, gate) => acc + gate.crowd, 0) / 10;
+
+  AppState.system.congestionIndex = clamp(Math.round((sectionScore + gateScore) / 5), 0, 100);
+
+  const bestGate = Object.entries(AppState.stadium.gates)
+    .sort((a, b) => a[1].crowd - b[1].crowd)[0];
+  AppState.system.recommendedGate = bestGate ? bestGate[0].replace('Gate', 'Gate ') : 'Gate 1';
+
+  AppState.system.lastUpdated = formatClock();
+}
+
+function syncGlobalStatus() {
+  const statusEl = document.getElementById('global-status-text');
+  if (statusEl) {
+    if (AppState.isLoading) {
+      statusEl.textContent = 'Loading...';
+      return;
     }
-  });
+    if (AppState.error) {
+      statusEl.textContent = `Error: ${AppState.error}`;
+      return;
+    }
+    const stateText = AppState.system.congestionIndex > 68 ? 'Attention Needed' : 'Live: Match Ongoing';
+    statusEl.textContent = `${stateText} | Updated ${AppState.system.lastUpdated}`;
+  }
+}
 
-  // Dispatch custom update event
-  AppState.events.dispatchEvent(new CustomEvent('stateChanged'));
-}, 3000);
+async function fetchData() {
+  try {
+    AppState.isLoading = AppState.alerts.length === 0 && !AppState.system.lastUpdated;
+    syncGlobalStatus();
 
+    const [dashboardRes, foodRes] = await Promise.all([
+      fetch('http://localhost:5000/dashboard').catch(() => null),
+      fetch('http://localhost:5000/food').catch(() => null)
+    ]);
+
+    if (!dashboardRes || !foodRes || !dashboardRes.ok || !foodRes.ok) {
+      throw new Error('API request failed');
+    }
+
+    const dashboardData = await dashboardRes.json();
+    const foodData = await foodRes.json();
+
+    // Data integration adapting API to AppState schema
+    if (dashboardData.audience) AppState.match.audience = dashboardData.audience;
+    if (dashboardData.congestion) AppState.system.congestionIndex = dashboardData.congestion;
+    if (dashboardData.gate) AppState.system.recommendedGate = dashboardData.gate;
+    
+    // Update individual gates metrics if provided
+    if (dashboardData.stadium) AppState.stadium = dashboardData.stadium;
+
+    if (Array.isArray(foodData)) {
+      AppState.foodVendors = foodData;
+    } else if (foodData.vendors) {
+      AppState.foodVendors = foodData.vendors;
+    }
+
+    AppState.isLoading = false;
+    AppState.error = null;
+
+  } catch (err) {
+    AppState.error = err.message || 'Backend connection refused. Please start the backend server.';
+    AppState.isLoading = false;
+  }
+
+  updateInsights();
+  buildAlerts();
+  syncGlobalStatus();
+  AppState.events.dispatchEvent(new CustomEvent('stateChanged', { detail: AppState }));
+}
+
+AppState.match.score = formatScore(AppState.match);
+updateInsights();
+buildAlerts();
+syncGlobalStatus();
+
+// Simulate Component Mount / useEffect equivalent for Vanilla JS
+let fetchInterval;
+export function startDataSync() {
+  fetchData();
+  fetchInterval = setInterval(fetchData, 5000); // Refresh every 5 seconds
+}
+
+export function stopDataSync() {
+  clearInterval(fetchInterval); // Cleanup interval properly
+}
+
+startDataSync();
 
 // ---- ROUTER ---- //
 const routes = {
@@ -87,10 +310,16 @@ const routes = {
   'emergency': renderEmergency
 };
 
+let mountedView = null;
+
 function navigateTo(route) {
   if (!routes[route]) return;
   AppState.activeRoute = route;
-  
+
+  if (mountedView && typeof mountedView.onUnmount === 'function') {
+    mountedView.onUnmount();
+  }
+
   // Update UI active states
   document.querySelectorAll('.nav-link').forEach(el => {
     el.classList.remove('active');
@@ -105,9 +334,10 @@ function navigateTo(route) {
 
   const viewContainer = document.createElement('div');
   viewContainer.className = 'view active';
-  
+
   mainContent.appendChild(viewContainer);
   routes[route](viewContainer, AppState);
+  mountedView = viewContainer;
 }
 
 // Global Nav Handlers

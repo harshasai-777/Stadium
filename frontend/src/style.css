@@ -90,6 +90,14 @@ h1, h2, h3, h4, h5, h6 {
   text-shadow: 0 0 10px var(--primary-glow);
 }
 
+.brand-logo {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.28);
+  flex-shrink: 0;
+}
+
 .brand h1 {
   font-size: 22px;
   font-weight: 600;

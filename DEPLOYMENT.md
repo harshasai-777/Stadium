@@ -1,58 +1,96 @@
-# Smart Stadium Deployment Guide
+# Smart Stadium Deployment (Google Cloud Run)
 
-## 1) Pre-check (local)
+This project is already split into:
+- `backend` (Express API)
+- `frontend` (Vite app)
 
-1. Backend:
-   - `cd backend`
-   - `npm install`
-   - `npm start`
-   - Verify:
-     - `http://localhost:5000/`
-     - `http://localhost:5000/dashboard`
-     - `http://localhost:5000/food`
-2. Frontend:
-   - `cd frontend`
-   - `npm install`
-   - Ensure `.env` has `VITE_API_URL=http://localhost:5000`
-   - `npm run build`
+## 0) One-time setup
 
-## 2) Deploy Backend (Render)
+1. Install Google Cloud SDK and login:
+   - `gcloud auth login`
+2. Set project:
+   - `gcloud config set project YOUR_GCP_PROJECT_ID`
+3. Enable APIs:
+   - `gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com`
+4. Set region (example):
+   - `gcloud config set run/region asia-south1`
+5. Create Artifact Registry repo (one-time):
+   - `gcloud artifacts repositories create stadium --repository-format=docker --location=asia-south1 --description=\"Stadium containers\"`
 
-1. Push latest code to GitHub/GitLab.
-2. In Render, create a Web Service from the repo.
-3. Use:
-   - Root Directory: `backend`
-   - Build Command: `npm install`
-   - Start Command: `npm start`
-4. Deploy.
-5. Copy backend URL, for example:
-   - `https://your-backend.onrender.com`
-6. Test:
-   - `https://your-backend.onrender.com/`
-   - `https://your-backend.onrender.com/dashboard`
-   - `https://your-backend.onrender.com/food`
+## 1) Deploy backend to Cloud Run
 
-Note: `render.yaml` is included in repo to keep this configuration consistent.
+Build backend image with Cloud Build:
 
-## 3) Deploy Frontend (Vercel)
+```bash
+gcloud builds submit \
+  --config cloudbuild.backend.yaml \
+  --substitutions=_IMAGE=asia-south1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/stadium/backend:latest
+```
 
-1. Import the same repo in Vercel.
-2. Set:
-   - Root Directory: `frontend`
-   - Framework: `Vite`
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
-3. Add environment variable in Vercel project:
-   - `VITE_API_URL=https://your-backend.onrender.com`
-4. Deploy.
+Deploy backend service:
 
-Note: `frontend/vercel.json` is included to keep build/output/SPA routing stable.
+```bash
+gcloud run deploy stadium-backend \
+  --image asia-south1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/stadium/backend:latest \
+  --allow-unauthenticated \
+  --region asia-south1 \
+  --platform managed
+```
 
-## 4) Post-deploy check
+Test backend:
+- `https://<backend-service-url>/`
+- `https://<backend-service-url>/dashboard`
+- `https://<backend-service-url>/food`
 
-1. Open frontend URL.
-2. Verify live updates every 5 seconds on dashboard/food.
-3. Verify emergency request works.
-4. If old data appears:
-   - redeploy backend first, then frontend
-   - hard refresh browser (`Ctrl + F5`)
+## 2) Deploy frontend to Cloud Run
+
+Use backend URL from step 1 as Vite API URL during build.
+
+Build frontend image:
+
+```bash
+gcloud builds submit \
+  --config cloudbuild.frontend.yaml \
+  --substitutions=_IMAGE=asia-south1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/stadium/frontend:latest,_VITE_API_URL=https://<backend-service-url>
+```
+
+Deploy frontend service:
+
+```bash
+gcloud run deploy stadium-frontend \
+  --image asia-south1-docker.pkg.dev/YOUR_GCP_PROJECT_ID/stadium/frontend:latest \
+  --allow-unauthenticated \
+  --region asia-south1 \
+  --platform managed
+```
+
+Open frontend URL from deploy output.
+
+## 3) Update flow (when code changes)
+
+1. Rebuild + redeploy backend.
+2. Rebuild + redeploy frontend with `_VITE_API_URL` pointing to backend URL.
+3. Hard refresh browser (`Ctrl+F5`) if needed.
+
+## 4) Local verification before deploy
+
+Backend:
+```bash
+cd backend
+npm install
+npm start
+```
+
+Frontend:
+```bash
+cd frontend
+npm install
+npm run build
+```
+
+## Notes
+
+- No database required.
+- No secrets are embedded in code.
+- `frontend/.env` can stay local-only for dev.
+- In production, API URL is injected during frontend image build using `_VITE_API_URL`.

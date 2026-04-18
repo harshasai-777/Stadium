@@ -41,6 +41,39 @@ function useEffect(effectCallback) {
   return typeof cleanup === 'function' ? cleanup : () => {};
 }
 
+function normalizeFoodVendors(rawFood) {
+  if (!Array.isArray(rawFood)) return [];
+
+  return rawFood.map((vendor, index) => {
+    const waitTime = Number(vendor.waitTime) || 10;
+    let status = 'safe';
+    if (waitTime >= 25) status = 'crowded';
+    else if (waitTime >= 12) status = 'medium';
+
+    const menuFromApi = Array.isArray(vendor.menu) ? vendor.menu : [];
+    const menu = (menuFromApi.length > 0 ? menuFromApi : [
+      { id: `m-${index + 1}-1`, name: 'Regular Combo', price: 220 },
+      { id: `m-${index + 1}-2`, name: 'Premium Combo', price: 320 },
+      { id: `m-${index + 1}-3`, name: 'Beverage', price: 120 }
+    ]).map((item, itemIndex) => ({
+      id: item.id || `m-${index + 1}-${itemIndex + 1}`,
+      name: item.name || `Item ${itemIndex + 1}`,
+      price: Number(item.price) || 200
+    }));
+
+    return {
+      id: Number(vendor.id) || (index + 1),
+      name: vendor.name || `Vendor ${index + 1}`,
+      type: vendor.type || 'snacks',
+      image: vendor.image || 'https://images.unsplash.com/photo-1515003197210-e0cd71810b5f?auto=format&fit=crop&w=1200&q=80',
+      waitTime,
+      rating: vendor.rating || '4.2/5',
+      status: vendor.status || status,
+      menu
+    };
+  });
+}
+
 // ---- GLOBAL STATE & SIMULATOR ---- //
 export const AppState = {
   isLoading: true,
@@ -278,17 +311,20 @@ async function fetchData() {
     const foodData = await foodRes.json();
 
     if (typeof dashboardData.audience === 'number') AppState.match.audience = dashboardData.audience;
+    if (typeof dashboardData.totalAudience === 'number') AppState.match.audience = dashboardData.totalAudience;
     if (typeof dashboardData.maxAudience === 'number') AppState.match.maxAudience = dashboardData.maxAudience;
     if (typeof dashboardData.congestion === 'number') AppState.system.congestionIndex = dashboardData.congestion;
+    if (typeof dashboardData.congestionIndex === 'number') AppState.system.congestionIndex = dashboardData.congestionIndex;
     if (dashboardData.gate) AppState.system.recommendedGate = dashboardData.gate;
+    if (dashboardData.recommendedGate) AppState.system.recommendedGate = dashboardData.recommendedGate;
     if (dashboardData.lastUpdated) AppState.system.lastUpdated = formatClock(new Date(dashboardData.lastUpdated));
     
     if (dashboardData.stadium) AppState.stadium = dashboardData.stadium;
 
     if (Array.isArray(foodData)) {
-      AppState.foodVendors = foodData;
+      AppState.foodVendors = normalizeFoodVendors(foodData);
     } else if (foodData.vendors) {
-      AppState.foodVendors = foodData.vendors;
+      AppState.foodVendors = normalizeFoodVendors(foodData.vendors);
     }
 
     setHasLoadedOnce(true);

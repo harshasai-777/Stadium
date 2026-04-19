@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -165,8 +166,8 @@ setInterval(() => {
   });
 }, 5000);
 
-app.get('/', (req, res) => {
-  res.send('Backend running');
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok' });
 });
 
 app.get('/dashboard', (req, res) => {
@@ -183,6 +184,31 @@ app.get('/dashboard', (req, res) => {
 
 app.get('/food', (req, res) => {
   res.json(foodVendors);
+});
+
+app.post('/emergency', (req, res) => {
+  const issueType = req.body?.issueType || 'Medical';
+  const seat = req.body?.seat || 'Unknown';
+  const incidentId = `INC-${Math.floor(Math.random() * 9000 + 1000)}`;
+
+  res.status(201).json({
+    success: true,
+    message: 'Emergency alert created',
+    alert: {
+      incidentId,
+      issueType,
+      seat,
+      recommendedGate: getRecommendedGate(),
+      responderEtaSeconds: 180,
+      createdAt: new Date().toISOString()
+    }
+  });
+});
+
+const staticDir = path.join(__dirname, 'public');
+app.use(express.static(staticDir));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(staticDir, 'index.html'));
 });
 
 app.listen(PORT, () => {

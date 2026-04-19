@@ -6,6 +6,6 @@ steps:
       - ${_IMAGE}
       - --build-arg
       - VITE_API_URL=${_VITE_API_URL}
-      - ./frontend
+      - .
 images:
   - ${_IMAGE}

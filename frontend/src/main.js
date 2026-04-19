@@ -4,7 +4,7 @@ import { renderStadium } from './views/stadium.js';
 import { renderFood } from './views/food.js';
 import { renderEmergency } from './views/emergency.js';
 
-const API = import.meta.env.VITE_API_URL;
+const API = import.meta.env.VITE_API_URL || '';
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const densityFromCount = (count) => {

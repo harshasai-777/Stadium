@@ -9,20 +9,25 @@ app.use(express.json());
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const densityFromCount = (count) => {
-  if (count >= 3800) return 'crowded';
-  if (count >= 1800) return 'medium';
+  if (count >= 18000) return 'crowded';
+  if (count >= 9000) return 'medium';
   return 'safe';
 };
 
-let totalAudience = 45000;
-const maxAudience = 50000;
+const sectionCapacity = {
+  NorthStand: 25000,
+  SouthStand: 25000,
+  EastPavilion: 25000,
+  WestPavilion: 25000
+};
+const maxAudience = 100000;
 
 const stadium = {
   sections: {
-    NorthStand: { density: 'safe', count: 1200 },
-    SouthStand: { density: 'crowded', count: 4800 },
-    EastPavilion: { density: 'medium', count: 2500 },
-    WestPavilion: { density: 'safe', count: 900 }
+    NorthStand: { density: 'medium', count: 14000 },
+    SouthStand: { density: 'crowded', count: 22000 },
+    EastPavilion: { density: 'medium', count: 17000 },
+    WestPavilion: { density: 'safe', count: 9000 }
   },
   gates: {
     Gate1: { crowd: 50 },
@@ -30,6 +35,8 @@ const stadium = {
     Gate3: { crowd: 10 }
   }
 };
+
+let totalAudience = Object.values(stadium.sections).reduce((acc, section) => acc + section.count, 0);
 
 const foodVendors = [
   {
@@ -134,14 +141,15 @@ function getRecommendedGate() {
 }
 
 setInterval(() => {
-  const audienceDelta = Math.floor(Math.random() * 120) - 60;
-  totalAudience = clamp(totalAudience + audienceDelta, 10000, maxAudience);
-
   Object.keys(stadium.sections).forEach((section) => {
-    const change = Math.floor(Math.random() * 220) - 110;
-    const count = clamp(stadium.sections[section].count + change, 100, 8000);
+    const change = Math.floor(Math.random() * 3000) - 1500;
+    const capacity = sectionCapacity[section] || 25000;
+    const count = clamp(stadium.sections[section].count + change, 2500, capacity);
     stadium.sections[section] = { count, density: densityFromCount(count) };
   });
+
+  totalAudience = Object.values(stadium.sections).reduce((acc, section) => acc + section.count, 0);
+  totalAudience = clamp(totalAudience, 10000, maxAudience);
 
   Object.keys(stadium.gates).forEach((gate) => {
     const change = Math.floor(Math.random() * 40) - 20;
